@@ -1,1 +1,1 @@
-This will be a basic shooter game wich main task is to run on a Raspberry pi and support (technically) endless users on other divices. 
+This branch is based around the programms and tasks that run on the device of the user
