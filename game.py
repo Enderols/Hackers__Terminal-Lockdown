@@ -1,7 +1,7 @@
 import pygame
 import math
 import sys
-import _thread 
+
 
 # --- Settings ---
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
@@ -50,6 +50,9 @@ class Player:
         self.speed = 4
         self.health = 100
         players.append(self)
+        self.hack_cooldown = 0
+        self.hack_delay = 60  # 60 frames = 1 second at 60 FPS
+
 
         self.shoot_cooldown = 0
         self.shoot_delay = 24  # 24 Frames = 0.4s bei 60 FPS
@@ -61,24 +64,34 @@ class Player:
         forward = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
         right = pygame.Vector2(-forward.y, forward.x)
         move = pygame.Vector2(0, 0)
+
+
+
+
+        ### Movement controlls müssen noch angepasst werden (der NPC bewegt sich sonst gleich wie der Speiler)
+
+
+
         if keys[pygame.K_w]: move += forward
         if keys[pygame.K_a]: move -= right
         if keys[pygame.K_s]: move -= forward
         if keys[pygame.K_d]: move += right
-        if keys[pygame.K_h]:
-            
+
+        if self.hack_cooldown > 0:
+            self.hack_cooldown -= 1
+
+        if keys[pygame.K_h] and self.hack_cooldown == 0:
             for hackpoint in hackpoints:
                 if self.pos.distance_to(hackpoint.pos) < 100:
                     hackpoint.health -= 10
                     print(f"Hacking Point Health: {hackpoint.health}")
-                    #wait for 1 second to simulate hacking
-                    pygame.time.delay(1000)  # 1 second delay
-                    
+                    self.hack_cooldown = self.hack_delay  # start cooldown
+
                     if hackpoint.health <= 0:
                         print("Hacking Point destroyed!")
                         hackpoints.remove(hackpoint)
-                        #change the color of the hacking point to indicate destruction
                         hackpoint.image_orig.fill((0, 0, 0, 0))
+                    break  # Only hack one point at a time
 
 
 
@@ -176,6 +189,9 @@ bullets = []  # Liste aller Bullets
 
 testhack = HackingPoint((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
 
+#bots
+Player((1000,800))
+
 
 # CHATGPT generierte Wände für test-zwecke
 
@@ -226,8 +242,9 @@ while True:
     mouse_world = mouse_screen / ZOOM + view_rect.topleft
 
     keys = pygame.key.get_pressed()
-    player.update(mouse_world, keys)
-    player.draw(world_surface)
+    for player in players:
+        player.update(mouse_world, keys)
+        player.draw(world_surface)
     
     
     # Bullets updaten und zeichnen
@@ -243,6 +260,3 @@ while True:
     world_surface.blit(testhack.image, testhack.rect.topleft)
     screen.blit(camera.apply(world_surface, view_rect), (0, 0))
     pygame.display.flip()
-    
-    
-#test haha
