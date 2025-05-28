@@ -34,16 +34,7 @@ class HackingPoint:
         self.speed = 4
         hackpoints.append(self)
 
-
-
-
-
-
-
-
-
-
-#Player class
+# Player class and client and enemy lists (generisation)
 players = []
 class Player:
     def __init__(self, pos):
@@ -61,6 +52,27 @@ class Player:
         self.shoot_cooldown = 0
         self.shoot_delay = 24  # 24 Frames = 0.4s bei 60 FPS
 
+    def update(self, mouse_world_pos, keys):
+        direction = mouse_world_pos - self.pos
+        self.angle = math.atan2(direction.y, direction.x)
+
+        forward = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
+        right = pygame.Vector2(-forward.y, forward.x)
+        move = pygame.Vector2(0, 0)
+
+    def draw(self, surface):
+        rotated = pygame.transform.rotate(self.image_orig, -math.degrees(self.angle))
+        rect = rotated.get_rect(center=self.pos)
+        surface.blit(rotated, rect)
+
+    def shoot(self):
+        bullet = Bullet(self.pos, self.angle)
+        bullets.append(bullet)  # Bullet zur globalen Liste hinzufügen
+
+
+class Client(Player):
+    def __init__(self,pos):
+        super().__init__(pos)
     def update(self, mouse_world_pos, keys):
         direction = mouse_world_pos - self.pos
         self.angle = math.atan2(direction.y, direction.x)
@@ -125,28 +137,6 @@ class Player:
         rect = rotated.get_rect(center=self.pos)
         surface.blit(rotated, rect)
 
-    def shoot(self):
-        bullet = Bullet(self.pos, self.angle)
-        bullets.append(bullet)  # Bullet zur globalen Liste hinzufügen
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Bullet class
 class Bullet:
     def __init__(self, pos, angle):
@@ -205,7 +195,7 @@ def draw_world(surface):
         pygame.draw.rect(surface, (0, 0, 0), wall)
 
 # Setup
-player = Player((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
+player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
 camera = Camera(WORLD_WIDTH, WORLD_HEIGHT, ZOOM)
 bullets = []  # Liste aller Bullets
 
