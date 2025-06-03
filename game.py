@@ -4,7 +4,8 @@ import sys
 
 
 # --- Settings ---
-SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
+SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600#
+WORLD_WIDTH, WORLD_HEIGHT = 2400, 1800  #map size
 ZOOM = 1
 # --- pygame setup ---
 pygame.init()
@@ -20,7 +21,7 @@ class Wall:
         self.rect = pygame.Rect(x, y, width, height)
         walls.append(self.rect)
 
-WORLD_WIDTH, WORLD_HEIGHT = 2400, 1800  # Bigger world now
+
 
 # Hacking points
 hackpoints = []
@@ -34,33 +35,47 @@ class HackingPoint:
         self.speed = 4
         hackpoints.append(self)
 
-
-
-
-
-
-
-
-
-
-#Player class
+# ___playersclass___
 players = []
 class Player:
-    def __init__(self, pos):
+    def __init__(self, pos,name="unknown"):
         self.image_orig = pygame.Surface((40, 20), pygame.SRCALPHA)
         pygame.draw.polygon(self.image_orig, (0, 0, 255), [(0, 0), (40, 10), (0, 20)])
         self.pos = pygame.Vector2(pos)
         self.angle = 0
         self.speed = 4
         self.health = 100
+        self.name = name
         players.append(self)
         self.hack_cooldown = 0
         self.hack_delay = 60  # 60 frames = 1 second at 60 FPS
 
-
         self.shoot_cooldown = 0
         self.shoot_delay = 24  # 24 Frames = 0.4s bei 60 FPS
 
+    def update(self, mouse_world_pos, keys):
+        forward = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
+        right = pygame.Vector2(-forward.y, forward.x)
+        move = pygame.Vector2(0, 0)
+
+    def draw(self, surface):
+        rotated = pygame.transform.rotate(self.image_orig, -math.degrees(self.angle))
+        rect = rotated.get_rect(center=self.pos)
+        surface.blit(rotated, rect)
+        #draw name
+        font = pygame.font.Font(None, 24)
+        name_surf = font.render(self.name, True, (0, 0, 0))
+        name_rect = name_surf.get_rect(center=(self.pos.x, self.pos.y - 25))
+        surface.blit(name_surf, name_rect)
+
+    def shoot(self):
+        bullet = Bullet(self.pos, self.angle)
+        bullets.append(bullet)  # Bullet zur globalen Liste hinzufügen
+
+
+class Client(Player):
+    def __init__(self,pos):
+        super().__init__(pos)
     def update(self, mouse_world_pos, keys):
         direction = mouse_world_pos - self.pos
         self.angle = math.atan2(direction.y, direction.x)
@@ -68,13 +83,6 @@ class Player:
         forward = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
         right = pygame.Vector2(-forward.y, forward.x)
         move = pygame.Vector2(0, 0)
-
-
-
-
-        ### Movement controlls müssen noch angepasst werden (der NPC bewegt sich sonst gleich wie der Speiler)
-
-
 
         if keys[pygame.K_w]: move += forward
         if keys[pygame.K_a]: move -= right
@@ -125,28 +133,6 @@ class Player:
         rect = rotated.get_rect(center=self.pos)
         surface.blit(rotated, rect)
 
-    def shoot(self):
-        bullet = Bullet(self.pos, self.angle)
-        bullets.append(bullet)  # Bullet zur globalen Liste hinzufügen
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Bullet class
 class Bullet:
     def __init__(self, pos, angle):
@@ -166,12 +152,21 @@ class Bullet:
         for wall in walls:
             if self.rect.colliderect(wall):
                 return True  # Kollision -> Bullet soll entfernt werden
-        # OWenn Bullet außerhalb Welt ist, auch entfernen
+
         # test if bullet hits player
-        for Player in [player]:
-            if self.rect.colliderect(pygame.Rect(Player.pos.x - 20, Player.pos.y - 10, 40, 20)):
-                Player.health -= 10
-                return True #Bullet gets removed
+        for p in players:
+            player_rect = pygame.Rect(p.pos.x - 20, p.pos.y - 10, 40, 20)
+            if self.rect.colliderect(player_rect):
+                if p.health > 0:
+                    p.health -= 10
+                    print(f"{p.name} got hit Health: {p.health}") #debug output
+                    return True  # Bullet soll entfernt werden
+                else:
+                    players.remove(p)
+                    p.image_orig.fill((0, 0, 0, 0))
+                    return True
+
+                    
 
         if not pygame.Rect(0, 0, WORLD_WIDTH, WORLD_HEIGHT).colliderect(self.rect):
             return True
@@ -198,6 +193,34 @@ class Camera:
         zoomed = pygame.transform.smoothscale(surface.subsurface(view_rect), (SCREEN_WIDTH, SCREEN_HEIGHT))
         return zoomed
 
+#Update game 
+def updategame():
+    world_surface = pygame.Surface((WORLD_WIDTH, WORLD_HEIGHT))
+    draw_world(world_surface)
+
+    view_rect = camera.get_view_rect(player.pos)
+    mouse_screen = pygame.Vector2(pygame.mouse.get_pos())
+    mouse_world = mouse_screen / ZOOM + view_rect.topleft
+
+    keys = pygame.key.get_pressed()
+    for user in players:
+        user.update(mouse_world, keys)
+        user.draw(world_surface)
+    
+    
+    # Bullets updaten und zeichnen
+    for bullet in bullets[:]:
+        collided = bullet.update()
+        if collided:
+            bullets.remove(bullet)
+        else:
+            bullet.draw(world_surface)
+    # Draw the hacking point
+    testhack.image = pygame.transform.rotate(testhack.image_orig, -math.degrees(testhack.angle))
+    testhack.rect = testhack.image.get_rect(center=testhack.pos)
+    world_surface.blit(testhack.image, testhack.rect.topleft)
+    screen.blit(camera.apply(world_surface, view_rect), (0, 0))
+
 # Function to draw the world
 def draw_world(surface):
     surface.fill((255, 255, 255))
@@ -205,14 +228,16 @@ def draw_world(surface):
         pygame.draw.rect(surface, (0, 0, 0), wall)
 
 # Setup
-player = Player((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
+player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
 camera = Camera(WORLD_WIDTH, WORLD_HEIGHT, ZOOM)
 bullets = []  # Liste aller Bullets
 
 testhack = HackingPoint((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
 
 #bots
-Player((1000,800))
+bot=Player((1000,800),"bot1")
+Player((1000, 600),"bot2")
+  # Add a bot player for testing
 
 
 # CHATGPT generierte Wände für test-zwecke
@@ -249,36 +274,10 @@ Wall(1600, 1400, 400, 20)
 
 # --- Main loop ---
 while True:
-    
     dt = clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-
-    world_surface = pygame.Surface((WORLD_WIDTH, WORLD_HEIGHT))
-    draw_world(world_surface)
-
-    view_rect = camera.get_view_rect(player.pos)
-    mouse_screen = pygame.Vector2(pygame.mouse.get_pos())
-    mouse_world = mouse_screen / ZOOM + view_rect.topleft
-
-    keys = pygame.key.get_pressed()
-    for player in players:
-        player.update(mouse_world, keys)
-        player.draw(world_surface)
-    
-    
-    # Bullets updaten und zeichnen
-    for bullet in bullets[:]:
-        collided = bullet.update()
-        if collided:
-            bullets.remove(bullet)
-        else:
-            bullet.draw(world_surface)
-    # Draw the hacking point
-    testhack.image = pygame.transform.rotate(testhack.image_orig, -math.degrees(testhack.angle))
-    testhack.rect = testhack.image.get_rect(center=testhack.pos)
-    world_surface.blit(testhack.image, testhack.rect.topleft)
-    screen.blit(camera.apply(world_surface, view_rect), (0, 0))
+    updategame()
     pygame.display.flip()
