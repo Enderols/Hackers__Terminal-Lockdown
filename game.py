@@ -6,12 +6,14 @@ import sys
 # --- Settings ---
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600#
 WORLD_WIDTH, WORLD_HEIGHT = 2400, 1800  #map size
-ZOOM = 1
+ZOOM = 1.5
+
 # --- pygame setup ---
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Hackers: Terminal Lockdown")
 clock = pygame.time.Clock()
+font = pygame.font.Font(None, 36)
 
 # --- Game objects ---
 # Walls class
@@ -75,11 +77,20 @@ class Player:
         players.append(self)
         self.hack_cooldown = 0
         self.hack_delay = 60  # 60 frames = 1 second at 60 FPS
+        self.ammo = 20
 
         self.shoot_cooldown = 0
         self.shoot_delay = 24  # 24 Frames = 0.4s bei 60 FPS
 
     def update(self, mouse_world_pos, keys):
+        global player_dead
+        if self.health <= 0 and not player_dead:
+            self.health = 0
+            player_dead = True
+            if self in players:
+                players.remove(self)
+            return  # Stop further updates if dead
+
         forward = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
         right = pygame.Vector2(-forward.y, forward.x)
         move = pygame.Vector2(0, 0)
@@ -103,49 +114,58 @@ class Player:
         surface.blit(name_surf, name_rect)
 
     def shoot(self):
-        length = 1000
-        direction = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
-        start = self.pos + direction * 25
-        end = start + direction * length
+        if self.ammo <= 0:
+            print("Out of ammo!")
+            return
+        else:
+            print(f"Remaining ammo: {self.ammo}")
+            self.ammo -= 1
+            length = 1000
+            direction = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
+            start = self.pos + direction * 25
+            end = start + direction * length
 
-        # Find the closest wall intersection
-        min_dist = float('inf')
-        hit_point = None
-        for wall in walls:
-            clipped = wall.clipline((start.x, start.y), (end.x, end.y))
-            if clipped:
-                for pt in clipped:
-                    dist = pygame.Vector2(pt).distance_to(start)
-                    if dist < min_dist:
-                        min_dist = dist
-                        hit_point = pygame.Vector2(pt)
-        if hit_point:
-            end = hit_point
+            # Find the closest wall intersection
+            min_dist = float('inf')
+            hit_point = None
+            for wall in walls:
+                clipped = wall.clipline((start.x, start.y), (end.x, end.y))
+                if clipped:
+                    for pt in clipped:
+                        dist = pygame.Vector2(pt).distance_to(start)
+                        if dist < min_dist:
+                            min_dist = dist
+                            hit_point = pygame.Vector2(pt)
+            if hit_point:
+                end = hit_point
 
-        # Check for player hits
-        for p in players[:]:  # Use a copy of the list in case we remove a player
-            if p is self:
-                continue
-            player_rect = pygame.Rect(p.pos.x - 20, p.pos.y - 10, 40, 20)
-            if player_rect.clipline((start.x, start.y), (end.x, end.y)):
-                p.health -= 10
-                p.hit_timer = 15
-                print(f"{p.name} got hit Health: {p.health}")
-                if p.health <= 0:
-                    print(f"{p.name} died!")
-                    players.remove(p)
-                # Only hit one player per shot (optional: remove break if you want multi-hit)
-                break
+            # Check for player hits
+            for p in players[:]:  # Use a copy of the list in case we remove a player
+                if p is self:
+                    continue
+                player_rect = pygame.Rect(p.pos.x - 20, p.pos.y - 10, 40, 20)
+                if player_rect.clipline((start.x, start.y), (end.x, end.y)):
+                    p.health -= 10
+                    p.hit_timer = 15
+                    print(f"{p.name} got hit Health: {p.health}")
+                    if p.health <= 0:
+                        print(f"{p.name} died!")
+                        p.health = 0
+                        if p in players:
+                            players.remove(p)
+                    # Only hit one player per shot (optional: remove break if you want multi-hit)
+                    break
 
-        # Store the line coordinates for drawing
-        global last_shot_coords, show_shot_line, shot_line_timer
-        last_shot_coords = (start, end)
-        show_shot_line = True
-        shot_line_timer = 1  # Only show for 1 frame
+            # Store the line coordinates for drawing
+            global last_shot_coords, show_shot_line, shot_line_timer
+            last_shot_coords = (start, end)
+            show_shot_line = True
+            shot_line_timer = 1  # Only show for 1 frame
 
 class Client(Player):
     def __init__(self,pos):
         super().__init__(pos)
+        
     def update(self, mouse_world_pos, keys):
         direction = mouse_world_pos - self.pos
         self.angle = math.atan2(direction.y, direction.x)
@@ -230,6 +250,7 @@ shot_line_timer = 0
 
 #Update game 
 def updategame():
+    global player_dead
     world_surface = pygame.Surface((WORLD_WIDTH, WORLD_HEIGHT))
     draw_world(world_surface)
 
@@ -241,7 +262,11 @@ def updategame():
     for user in players:
         user.update(mouse_world, keys)
         user.draw(world_surface)
-    
+
+    # Draw the main player if not dead (for local player)
+    if not player_dead:
+        player.draw(world_surface)
+
     # Draw all hacking points with loading bars
     for hackpoint in hackpoints:
         hackpoint.draw(world_surface)
@@ -256,6 +281,28 @@ def updategame():
         show_shot_line = False
 
     screen.blit(camera.apply(world_surface, view_rect), (0, 0))
+
+    text = font.render(f"Health: {max(player.health, 0)}", True, (0, 255, 0), (0, 0, 128))
+    text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30))
+    screen.blit(text, text_rect)
+
+    if player.health <= 0:
+        # Draw a semi-transparent grey overlay
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((50, 50, 50, 180))  # RGBA: last value is alpha (transparency)
+        screen.blit(overlay, (0, 0))
+
+        game_over_text = font.render("Game Over!", True, (255, 0, 0))
+        game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        screen.blit(game_over_text, game_over_rect)
+        #cover the screen in transparent red
+        print("Player died!")
+        player.health = 0
+        player_dead = True
+        if player in players:
+            players.remove(player)
+
+        
 
 # Function to draw the world
 def draw_world(surface):
@@ -309,11 +356,39 @@ Wall(1600, 1400, 400, 20)
 
 
 # --- Main loop ---
+player_dead = False
 while True:
     dt = clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+            
+    ### test ###
+        # Manual control for bot1 using arrow keys
+    keys = pygame.key.get_pressed()
+    bot_direction = pygame.Vector2(0, 0)
+
+    if keys[pygame.K_UP]:    bot_direction.y -= 1
+    if keys[pygame.K_DOWN]:  bot_direction.y += 1
+    if keys[pygame.K_LEFT]:  bot_direction.x -= 1
+    if keys[pygame.K_RIGHT]: bot_direction.x += 1
+
+    if bot_direction.length() > 0:
+        bot_direction = bot_direction.normalize()
+        bot.angle = math.atan2(bot_direction.y, bot_direction.x)
+        move = bot_direction * bot.speed
+
+        # Try move logic (reuse)
+        new_pos = bot.pos + move
+        bot_rect = pygame.Rect(new_pos.x - 20, new_pos.y - 10, 40, 20)
+        if not any(bot_rect.colliderect(wall) for wall in walls):
+            bot.pos = new_pos
+    ### test ###
     updategame()
+    
+    ### remove 10 health from player if z key is pressed for testing
+    if keys[pygame.K_z]:
+        player.health -= 10
+    ###
     pygame.display.flip()
