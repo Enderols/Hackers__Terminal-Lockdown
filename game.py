@@ -103,9 +103,45 @@ class Player:
         surface.blit(name_surf, name_rect)
 
     def shoot(self):
-        bullet = Bullet(self.pos, self.angle)
-        bullets.append(bullet)  # Bullet zur globalen Liste hinzufügen
+        length = 1000
+        direction = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
+        start = self.pos + direction * 25
+        end = start + direction * length
 
+        # Find the closest wall intersection
+        min_dist = float('inf')
+        hit_point = None
+        for wall in walls:
+            clipped = wall.clipline((start.x, start.y), (end.x, end.y))
+            if clipped:
+                for pt in clipped:
+                    dist = pygame.Vector2(pt).distance_to(start)
+                    if dist < min_dist:
+                        min_dist = dist
+                        hit_point = pygame.Vector2(pt)
+        if hit_point:
+            end = hit_point
+
+        # Check for player hits
+        for p in players[:]:  # Use a copy of the list in case we remove a player
+            if p is self:
+                continue
+            player_rect = pygame.Rect(p.pos.x - 20, p.pos.y - 10, 40, 20)
+            if player_rect.clipline((start.x, start.y), (end.x, end.y)):
+                p.health -= 10
+                p.hit_timer = 15
+                print(f"{p.name} got hit Health: {p.health}")
+                if p.health <= 0:
+                    print(f"{p.name} died!")
+                    players.remove(p)
+                # Only hit one player per shot (optional: remove break if you want multi-hit)
+                break
+
+        # Store the line coordinates for drawing
+        global last_shot_coords, show_shot_line, shot_line_timer
+        last_shot_coords = (start, end)
+        show_shot_line = True
+        shot_line_timer = 1  # Only show for 1 frame
 
 class Client(Player):
     def __init__(self,pos):
@@ -171,50 +207,6 @@ class Client(Player):
         rect = rotated.get_rect(center=self.pos)
         surface.blit(rotated, rect)
 
-# Bullet class
-class Bullet:
-    def __init__(self, pos, angle):
-        self.pos = pygame.Vector2(pos)
-        self.angle = angle
-        self.speed = 50  # Geschwindigkeit der Kugel
-        self.radius = 5
-        self.rect = pygame.Rect(self.pos.x - self.radius, self.pos.y - self.radius, self.radius*2, self.radius*2)
-
-    def update(self):
-        # Bullet bewegt sich
-        velocity = pygame.Vector2(math.cos(self.angle), math.sin(self.angle)) * self.speed
-        self.pos += velocity
-        self.rect.topleft = (self.pos.x - self.radius, self.pos.y - self.radius)
-
-        # Prüfe Kollision mit Wänden
-        for wall in walls:
-            if self.rect.colliderect(wall):
-                return True  # Kollision -> Bullet soll entfernt werden
-
-        # test if bullet hits player
-        for p in players:
-            player_rect = pygame.Rect(p.pos.x - 20, p.pos.y - 10, 40, 20)
-            if self.rect.colliderect(player_rect):
-                if p.health > 0:
-                    p.health -= 10
-                    p.hit_timer = 5  # Player turns red for 15 frames
-                    print(f"{p.name} got hit Health: {p.health}")
-                    return True
-                else:
-                    players.remove(p)
-                    p.image_orig.fill((0, 0, 0, 0))
-                    return True
-
-                    
-
-        if not pygame.Rect(0, 0, WORLD_WIDTH, WORLD_HEIGHT).colliderect(self.rect):
-            return True
-
-        return False  # Keine Kollision
-
-    def draw(self, surface):
-        pygame.draw.circle(surface, (0, 0, 0), (int(self.pos.x), int(self.pos.y)), self.radius)
-
 # Camera that follows the player
 class Camera:
     def __init__(self, width, height, zoom):
@@ -232,6 +224,10 @@ class Camera:
         zoomed = pygame.transform.smoothscale(surface.subsurface(view_rect), (SCREEN_WIDTH, SCREEN_HEIGHT))
         return zoomed
 
+last_shot_coords = None
+show_shot_line = False
+shot_line_timer = 0
+
 #Update game 
 def updategame():
     world_surface = pygame.Surface((WORLD_WIDTH, WORLD_HEIGHT))
@@ -246,16 +242,19 @@ def updategame():
         user.update(mouse_world, keys)
         user.draw(world_surface)
     
-    # Bullets updaten und zeichnen
-    for bullet in bullets[:]:
-        collided = bullet.update()
-        if collided:
-            bullets.remove(bullet)
-        else:
-            bullet.draw(world_surface)
     # Draw all hacking points with loading bars
     for hackpoint in hackpoints:
         hackpoint.draw(world_surface)
+
+    # Draw last shot line if shoot key is held
+    global last_shot_coords, show_shot_line, shot_line_timer
+    if show_shot_line and last_shot_coords and shot_line_timer > 0:
+        start, end = last_shot_coords
+        pygame.draw.line(world_surface, (255, 255, 0, 255), start, end, 10)  # Fully opaque, thicker
+        shot_line_timer -= 1
+    else:
+        show_shot_line = False
+
     screen.blit(camera.apply(world_surface, view_rect), (0, 0))
 
 # Function to draw the world
