@@ -16,30 +16,36 @@ pygame.display.set_caption("Client")
 
 
 
-def redraw_window(win, player, player2):
+def redraw_window(win, players):
     win.fill((255, 255, 255))
-    player.draw(win)
-    player2.draw(win)
+    for player in players:
+        player.draw(win)
+
     pygame.display.update()
 
 
 def main():
+    players = []
     run = True
     clock = pygame.time.Clock()
     n = Network()
     
-    p = n.getP()
+    players.append(n.getPlayer())
+    playerId = players[0].id
+
+    players = n.send(players[0])
     
     while run:
         clock.tick(60)
-        p2 = n.send(p)
+        print("Players : ", len(players))
+        players = n.send(players[playerId])
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
                 pygame.quit()
                 
-        p.move()
-        redraw_window(win, p, p2)
+        players[playerId].move()
+        redraw_window(win, players)
         
 main()
