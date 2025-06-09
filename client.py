@@ -13,13 +13,13 @@ pygame.display.set_caption("Client")
 
 
 
-
-
-
 def redraw_window(win, players):
     win.fill((255, 255, 255))
     for player in players:
-        player.draw(win)
+        if player is not None:
+            player.draw(win)
+        else:
+            continue
 
     pygame.display.update()
 
@@ -32,6 +32,7 @@ def main():
     
     players.append(n.getPlayer())
     playerId = players[0].id
+    pygame.display.set_caption(f"Client {playerId}")
 
     players = n.send(players[0])
     
@@ -44,8 +45,9 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
                 pygame.quit()
-                
-        players[playerId].move()
+
+        mouse_pos = pygame.mouse.get_pos()
+        players[playerId].move(mouse_pos)
         redraw_window(win, players)
         
 main()

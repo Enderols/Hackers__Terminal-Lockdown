@@ -16,6 +16,7 @@ except socket.error as e:
 
 s.listen(16) #max connections
 print("Waiting for a connection, Server Started")
+global currentPlayer
 
 
 #players = [Player(0,0,50,50, (255,0,0)), Player(33,33,50,50, (0,0,255))]
@@ -24,6 +25,7 @@ players = []
 
 def threaded_client(conn, playerId):
     conn.send(pickle.dumps(players[playerId]))
+    global currentPlayer
     reply = []
     while True:
         try:
@@ -43,15 +45,22 @@ def threaded_client(conn, playerId):
             
         except:
             print("Error")
+            players[playerId] = None
+            if all(p is None for p in players):
+                print("All clients disconnected. Clearing players list.")
+                players.clear()
+                currentPlayer = 0
             break
     print("Lost connection")
+    
     conn.close()
 
 currentPlayer = 0
 while True:
+    
     conn, addr = s.accept()
     print("Connected to: ", addr)
-    players.append(Player(currentPlayer, random.randint(0, 450), random.randint(0, 450), 50, 50, (random.randint(0,255), random.randint(0,255), random.randint(0,255))))
+    players.append(Player(currentPlayer, [random.randint(0, 450), random.randint(0, 450)],(random.randint(0,255), random.randint(0,255), random.randint(0,255))))
     start_new_thread(threaded_client, (conn, currentPlayer))
     currentPlayer += 1
     
