@@ -1,10 +1,10 @@
 import socket, pickle, random
 from _thread import *
 from sys import *
-from player import Player
+#from player import Player
 
 
-server = "10.0.0.11"
+server = "10.10.208.211"
 port = 5555
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -24,7 +24,7 @@ players = []
 
 
 def threaded_client(conn, playerId):
-    conn.send(pickle.dumps(players[playerId]))
+    conn.send(pickle.dumps(playerId))
     global currentPlayer
     reply = []
     while True:
@@ -60,7 +60,7 @@ while True:
     
     conn, addr = s.accept()
     print("Connected to: ", addr)
-    players.append(Player(currentPlayer, [random.randint(0, 450), random.randint(0, 450)],(random.randint(0,255), random.randint(0,255), random.randint(0,255))))
+    players.append(None) # Initialize with None for new player
     start_new_thread(threaded_client, (conn, currentPlayer))
     currentPlayer += 1
     

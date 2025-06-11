@@ -1,4 +1,5 @@
 import pygame
+import random
 import pickle
 from network import Network
 from player import Player
@@ -30,11 +31,12 @@ def main():
     clock = pygame.time.Clock()
     n = Network()
     
-    players.append(n.getPlayer())
-    playerId = players[0].id
+    playerId = n.getId()
+    print("Player ID:", playerId)
+    player = Player(playerId, [random.randint(0, 450), random.randint(0, 450)],(random.randint(0,255), random.randint(0,255), random.randint(0,255)))
     pygame.display.set_caption(f"Client {playerId}")
 
-    players = n.send(players[0])
+    players = n.send(player)
     
     while run:
         clock.tick(60)
