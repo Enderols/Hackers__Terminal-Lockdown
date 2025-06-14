@@ -1,7 +1,8 @@
 import pygame
 import math
 import sys
-
+from network import Network
+#from network import Network
 
 # --- Settings ---
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600#
@@ -15,6 +16,9 @@ pygame.display.set_caption("Hackers: Terminal Lockdown")
 clock = pygame.time.Clock()
 font = pygame.font.Font(None, 36)
 
+
+# --- Network setup ---
+n = Network()
 # --- Game objects ---
 # Walls class
 walls = []
@@ -63,21 +67,25 @@ class HackingPoint:
             pygame.draw.rect(surface, (0, 200, 0), (bar_x, bar_y, int(bar_width * health_ratio), bar_height))
     
 # ___playersclass___
-players = []
+
 class Player:
-    def __init__(self, pos, name="unknown"):
+    def __init__(self, pos, id,name="unknown"):
         self.image_orig = pygame.Surface((40, 20), pygame.SRCALPHA)
         pygame.draw.polygon(self.image_orig, (0, 0, 255), [(0, 0), (40, 10), (0, 20)])
+        
         self.pos = pygame.Vector2(pos)
         self.angle = 0
         self.speed = 4
         self.health = 100
+        self.points = 0
         self.name = name
         self.hit_timer = 0  # Add this line
         players.append(self)
         self.hack_cooldown = 0
         self.hack_delay = 60  # 60 frames = 1 second at 60 FPS
         self.ammo = 20
+
+        self.id = id
 
         self.shoot_cooldown = 0
         self.shoot_delay = 24  # 24 Frames = 0.4s bei 60 FPS
@@ -148,6 +156,7 @@ class Player:
                     p.health -= 10
                     p.hit_timer = 15
                     print(f"{p.name} got hit Health: {p.health}")
+                    self.points += 10
                     if p.health <= 0:
                         print(f"{p.name} died!")
                         p.health = 0
@@ -161,10 +170,11 @@ class Player:
             last_shot_coords = (start, end)
             show_shot_line = True
             shot_line_timer = 1  # Only show for 1 frame
+    
 
 class Client(Player):
-    def __init__(self,pos):
-        super().__init__(pos)
+    def __init__(self,pos,id):
+        super().__init__(pos,id)
         
     def update(self, mouse_world_pos, keys):
         direction = mouse_world_pos - self.pos
@@ -185,12 +195,13 @@ class Client(Player):
         if keys[pygame.K_h] and self.hack_cooldown == 0:
             for hackpoint in hackpoints:
                 if self.pos.distance_to(hackpoint.pos) < 100:
-                    hackpoint.health -= 10
+                    hackpoint.health -= 20
                     print(f"Hacking Point Health: {hackpoint.health}")
                     self.hack_cooldown = self.hack_delay  # start cooldown
 
                     if hackpoint.health <= 0:
                         print("Hacking Point destroyed!")
+                        self.points += 1
                         hackpoints.remove(hackpoint)
                         hackpoint.image_orig.fill((0, 0, 0, 0))
                     break  # Only hack one point at a time
@@ -226,6 +237,16 @@ class Client(Player):
         rotated = pygame.transform.rotate(self.image_orig, -math.degrees(self.angle))
         rect = rotated.get_rect(center=self.pos)
         surface.blit(rotated, rect)
+    
+    def send_data(self):
+        return {
+            "pos": self.pos,
+            "angle":self.angle,
+            "health": self.health,
+            "id": self.id,
+            "ammo": self.ammo,
+            "points": self.points,
+            }
 
 # Camera that follows the player
 class Camera:
@@ -302,7 +323,9 @@ def updategame():
         if player in players:
             players.remove(player)
 
-        
+        n.send_data(player.send_data)  # Send player data to server
+
+
 
 # Function to draw the world
 def draw_world(surface):
@@ -310,17 +333,41 @@ def draw_world(surface):
     for wall in walls:
         pygame.draw.rect(surface, (0, 0, 0), wall)
 
+
+def create_players():
+
+    for i in players:
+        pos = (WORLD_WIDTH // 2 + i * 50, WORLD_HEIGHT // 2 + i * 50)
+        player = Player(pos, id=i, name=f"Player {i}")
+        players.append(player)
+
+
+
+
 # Setup
-player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
+players = []
+
+
+
+
+ClientId = n.getId()
+print(f"Client ID: {ClientId}")
+
+player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2),id=ClientId)
+print(f"sending player: {player}")
+#players=n.send(player)
+print(players)
+
+test = Player((WORLD_WIDTH // 2, WORLD_HEIGHT // 2), id=0, name="Test Player")
+
+
+
 camera = Camera(WORLD_WIDTH, WORLD_HEIGHT, ZOOM)
 bullets = []  # Liste aller Bullets
 
 testhack = HackingPoint((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
 
-#bots
-bot=Player((1000,800),"bot1")
-Player((1000, 600),"bot2")
-  # Add a bot player for testing
+
 
 
 # CHATGPT generierte Wände für test-zwecke
@@ -363,31 +410,12 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-            
-    ### test ###
-        # Manual control for bot1 using arrow keys
-    keys = pygame.key.get_pressed()
-    bot_direction = pygame.Vector2(0, 0)
-
-    if keys[pygame.K_UP]:    bot_direction.y -= 1
-    if keys[pygame.K_DOWN]:  bot_direction.y += 1
-    if keys[pygame.K_LEFT]:  bot_direction.x -= 1
-    if keys[pygame.K_RIGHT]: bot_direction.x += 1
-
-    if bot_direction.length() > 0:
-        bot_direction = bot_direction.normalize()
-        bot.angle = math.atan2(bot_direction.y, bot_direction.x)
-        move = bot_direction * bot.speed
-
-        # Try move logic (reuse)
-        new_pos = bot.pos + move
-        bot_rect = pygame.Rect(new_pos.x - 20, new_pos.y - 10, 40, 20)
-        if not any(bot_rect.colliderect(wall) for wall in walls):
-            bot.pos = new_pos
-    ### test ###
+    #players = n.send(players[player.id])        
+    
     updategame()
     
     ### remove 10 health from player if z key is pressed for testing
+    keys = pygame.key.get_pressed()
     if keys[pygame.K_z]:
         player.health -= 10
     ###
