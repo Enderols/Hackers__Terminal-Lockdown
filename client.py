@@ -1,4 +1,5 @@
 import pygame
+import random
 import pickle
 from network import Network
 from player import Player
@@ -13,33 +14,42 @@ pygame.display.set_caption("Client")
 
 
 
-
-
-
-def redraw_window(win, player, player2):
+def redraw_window(win, players):
     win.fill((255, 255, 255))
-    player.draw(win)
-    player2.draw(win)
+    for player in players:
+        if player is not None:
+            player.draw(win)
+        else:
+            continue
+
     pygame.display.update()
 
 
 def main():
+    players = []
     run = True
     clock = pygame.time.Clock()
     n = Network()
     
-    p = n.getP()
+    playerId = n.getId()
+    print("Player ID:", playerId)
+    player = Player(playerId, [random.randint(0, 450), random.randint(0, 450)],(random.randint(0,255), random.randint(0,255), random.randint(0,255)))
+    pygame.display.set_caption(f"Client {playerId}")
+
+    players = n.send(player)
     
     while run:
         clock.tick(60)
-        p2 = n.send(p)
+        print("Players : ", len(players))
+        players = n.send(players[playerId])
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
                 pygame.quit()
-                
-        p.move()
-        redraw_window(win, p, p2)
+
+        mouse_pos = pygame.mouse.get_pos()
+        players[playerId].move(mouse_pos)
+        redraw_window(win, players)
         
 main()
