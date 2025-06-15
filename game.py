@@ -72,7 +72,7 @@ class Player:
     def __init__(self, pos, id,name="unknown"):
         self.image_orig = pygame.Surface((40, 20), pygame.SRCALPHA)
         pygame.draw.polygon(self.image_orig, (0, 0, 255), [(0, 0), (40, 10), (0, 20)])
-        
+        self.id = id
         self.pos = pygame.Vector2(pos)
         self.angle = 0
         self.speed = 4
@@ -80,12 +80,14 @@ class Player:
         self.points = 0
         self.name = name
         self.hit_timer = 0  # Add this line
-        players.append(self)
+        players[self.id] = self
         self.hack_cooldown = 0
         self.hack_delay = 60  # 60 frames = 1 second at 60 FPS
-        self.ammo = 20
+        self.ammo = 200000000000
 
-        self.id = id
+        self.damagedict = {}  # Dictionary to track damage given to other players
+
+        
 
         self.shoot_cooldown = 0
         self.shoot_delay = 24  # 24 Frames = 0.4s bei 60 FPS
@@ -148,12 +150,15 @@ class Player:
                 end = hit_point
 
             # Check for player hits
-            for p in players[:]:  # Use a copy of the list in case we remove a player
+            for p in players.values():  # Use a copy of the list in case we remove a player
                 if p is self:
                     continue
                 player_rect = pygame.Rect(p.pos.x - 20, p.pos.y - 10, 40, 20)
                 if player_rect.clipline((start.x, start.y), (end.x, end.y)):
                     p.health -= 10
+
+                    self.damagedict[p.id] = p.health
+
                     p.hit_timer = 15
                     print(f"{p.name} got hit Health: {p.health}")
                     self.points += 10
@@ -239,14 +244,22 @@ class Client(Player):
         surface.blit(rotated, rect)
     
     def send_data(self):
-        return {
+        data_dict = {
             "pos": self.pos,
             "angle":self.angle,
             "health": self.health,
             "id": self.id,
             "ammo": self.ammo,
             "points": self.points,
+            "givendamage": self.damagedict.copy(),
             }
+        if self.damagedict:
+            print(self.damagedict)
+        
+        self.damagedict.clear()  # Clear after sending
+        return data_dict.copy()
+        
+    
 
 # Camera that follows the player
 class Camera:
@@ -280,7 +293,7 @@ def updategame():
     mouse_world = mouse_screen / ZOOM + view_rect.topleft
 
     keys = pygame.key.get_pressed()
-    for user in players:
+    for user in players.values():
         user.update(mouse_world, keys)
         user.draw(world_surface)
 
@@ -323,8 +336,29 @@ def updategame():
         if player in players:
             players.remove(player)
 
-        n.send_data(player.send_data)  # Send player data to server
-
+    #if player in players:
+        #print(player.pos, player.angle)
+        
+    data = n.send(player.send_data())  # Send player data to server
+    #move players to the new data
+    #print(data)
+    for playerdict in data:
+        
+        if playerdict is None:
+            continue
+        i = playerdict["id"]
+        if playerdict["id"] == player.id:
+            player.health = playerdict["health"]
+            players[i].health = playerdict["health"]
+            print(playerdict["health"])
+            continue
+        else:
+            #print("gegner ausgeführt")
+            players[i].pos = pygame.Vector2(playerdict["pos"])
+            players[i].angle = playerdict["angle"]
+            players[i].health = playerdict["health"]
+            players[i].ammo = playerdict["ammo"]
+            players[i].points = playerdict["points"]
 
 
 # Function to draw the world
@@ -335,30 +369,31 @@ def draw_world(surface):
 
 
 def create_players():
-
-    for i in players:
-        pos = (WORLD_WIDTH // 2 + i * 50, WORLD_HEIGHT // 2 + i * 50)
-        player = Player(pos, id=i, name=f"Player {i}")
-        players.append(player)
-
-
+    numofplayers = n.getNumOfPlayers()
+    for i in range(numofplayers):
+        if i == player.id:
+            continue
+        else:
+            pos = (WORLD_WIDTH // 2 + i * 50, WORLD_HEIGHT // 2 + i * 50)
+            Player(pos, id=i, name=f"Player {i}")
 
 
 # Setup
-players = []
-
+players = {}
 
 
 
 ClientId = n.getId()
 print(f"Client ID: {ClientId}")
+pygame.display.set_caption(f"Hackers: Terminal Lockdown - Client {ClientId}")
 
-player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2),id=ClientId)
+player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2), id=ClientId)
 print(f"sending player: {player}")
 #players=n.send(player)
 print(players)
 
-test = Player((WORLD_WIDTH // 2, WORLD_HEIGHT // 2), id=0, name="Test Player")
+create_players()
+
 
 
 
