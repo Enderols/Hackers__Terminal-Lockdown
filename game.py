@@ -67,15 +67,9 @@ class HackingPoint:
             pygame.draw.rect(surface, (0, 200, 0), (bar_x, bar_y, int(bar_width * health_ratio), bar_height))
     
 # ___playersclass___
-<<<<<<< HEAD
 
 class Player:
     def __init__(self, pos, id,name="unknown"):
-=======
-players = []
-class Player:
-    def __init__(self, pos, name="unknown"):
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
         self.image_orig = pygame.Surface((40, 20), pygame.SRCALPHA)
         pygame.draw.polygon(self.image_orig, (0, 0, 255), [(0, 0), (40, 10), (0, 20)])
         self.id = id
@@ -83,7 +77,6 @@ class Player:
         self.angle = 0
         self.speed = 4
         self.health = 100
-<<<<<<< HEAD
         self.points = 0
         self.name = name
         self.hit_timer = 0  # Add this line
@@ -95,14 +88,6 @@ class Player:
         self.damagedict = {}  # Dictionary to track damage given to other players
 
         
-=======
-        self.name = name
-        self.hit_timer = 0  # Add this line
-        players.append(self)
-        self.hack_cooldown = 0
-        self.hack_delay = 60  # 60 frames = 1 second at 60 FPS
-        self.ammo = 20
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
 
         self.shoot_cooldown = 0
         self.shoot_delay = 24  # 24 Frames = 0.4s bei 60 FPS
@@ -165,27 +150,18 @@ class Player:
                 end = hit_point
 
             # Check for player hits
-<<<<<<< HEAD
             for p in players.values():  # Use a copy of the list in case we remove a player
-=======
-            for p in players[:]:  # Use a copy of the list in case we remove a player
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
                 if p is self:
                     continue
                 player_rect = pygame.Rect(p.pos.x - 20, p.pos.y - 10, 40, 20)
                 if player_rect.clipline((start.x, start.y), (end.x, end.y)):
                     p.health -= 10
-<<<<<<< HEAD
 
                     self.damagedict[p.id] = p.health
 
                     p.hit_timer = 15
                     print(f"{p.name} got hit Health: {p.health}")
                     self.points += 10
-=======
-                    p.hit_timer = 15
-                    print(f"{p.name} got hit Health: {p.health}")
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
                     if p.health <= 0:
                         print(f"{p.name} died!")
                         p.health = 0
@@ -199,18 +175,11 @@ class Player:
             last_shot_coords = (start, end)
             show_shot_line = True
             shot_line_timer = 1  # Only show for 1 frame
-<<<<<<< HEAD
     
 
 class Client(Player):
     def __init__(self,pos,id):
         super().__init__(pos,id)
-=======
-
-class Client(Player):
-    def __init__(self,pos):
-        super().__init__(pos)
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
         
     def update(self, mouse_world_pos, keys):
         direction = mouse_world_pos - self.pos
@@ -273,7 +242,6 @@ class Client(Player):
         rotated = pygame.transform.rotate(self.image_orig, -math.degrees(self.angle))
         rect = rotated.get_rect(center=self.pos)
         surface.blit(rotated, rect)
-<<<<<<< HEAD
     
     def send_data(self):
         data_dict = {
@@ -292,8 +260,6 @@ class Client(Player):
         return data_dict.copy()
         
     
-=======
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
 
 # Camera that follows the player
 class Camera:
@@ -327,11 +293,7 @@ def updategame():
     mouse_world = mouse_screen / ZOOM + view_rect.topleft
 
     keys = pygame.key.get_pressed()
-<<<<<<< HEAD
     for user in players.values():
-=======
-    for user in players:
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
         user.update(mouse_world, keys)
         user.draw(world_surface)
 
@@ -374,7 +336,6 @@ def updategame():
         if player in players:
             players.remove(player)
 
-<<<<<<< HEAD
     #if player in players:
         #print(player.pos, player.angle)
         
@@ -399,9 +360,6 @@ def updategame():
             players[i].ammo = playerdict["ammo"]
             players[i].points = playerdict["points"]
 
-=======
-        
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
 
 # Function to draw the world
 def draw_world(surface):
@@ -421,7 +379,6 @@ def create_players():
 
 
 # Setup
-<<<<<<< HEAD
 players = {}
 
 
@@ -440,22 +397,12 @@ create_players()
 
 
 
-=======
-player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
 camera = Camera(WORLD_WIDTH, WORLD_HEIGHT, ZOOM)
 bullets = []  # Liste aller Bullets
 
 testhack = HackingPoint((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
 
-<<<<<<< HEAD
 
-=======
-#bots
-bot=Player((1000,800),"bot1")
-Player((1000, 600),"bot2")
-  # Add a bot player for testing
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
 
 
 # CHATGPT generierte Wände für test-zwecke
@@ -498,40 +445,12 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-<<<<<<< HEAD
     #players = n.send(players[player.id])        
     
     updategame()
     
     ### remove 10 health from player if z key is pressed for testing
     keys = pygame.key.get_pressed()
-=======
-            
-    ### test ###
-        # Manual control for bot1 using arrow keys
-    keys = pygame.key.get_pressed()
-    bot_direction = pygame.Vector2(0, 0)
-
-    if keys[pygame.K_UP]:    bot_direction.y -= 1
-    if keys[pygame.K_DOWN]:  bot_direction.y += 1
-    if keys[pygame.K_LEFT]:  bot_direction.x -= 1
-    if keys[pygame.K_RIGHT]: bot_direction.x += 1
-
-    if bot_direction.length() > 0:
-        bot_direction = bot_direction.normalize()
-        bot.angle = math.atan2(bot_direction.y, bot_direction.x)
-        move = bot_direction * bot.speed
-
-        # Try move logic (reuse)
-        new_pos = bot.pos + move
-        bot_rect = pygame.Rect(new_pos.x - 20, new_pos.y - 10, 40, 20)
-        if not any(bot_rect.colliderect(wall) for wall in walls):
-            bot.pos = new_pos
-    ### test ###
-    updategame()
-    
-    ### remove 10 health from player if z key is pressed for testing
->>>>>>> 72482c5fb7ea5c88aadce0d5011910e6257d03ae
     if keys[pygame.K_z]:
         player.health -= 10
     ###
