@@ -4,6 +4,9 @@ import sys
 from network import Network
 #from network import Network
 
+
+
+
 # --- Settings ---
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600#
 WORLD_WIDTH, WORLD_HEIGHT = 2400, 1800  #map size
@@ -31,16 +34,23 @@ class Wall:
 
 # Hacking points
 hackpoints = []
+
+
 class HackingPoint:
-    def __init__(self,pos):
+    def __init__(self,pos,id):
+        
         self.image_orig = pygame.Surface((40, 20), pygame.SRCALPHA)
         pygame.draw.rect(self.image_orig, (255, 0, 0), (0, 0, 40, 20))
+        self.id =id
+        
         self.pos = pygame.Vector2(pos)
         self.health = 100
         self.displayed_health = 100  # For smooth animation
         self.angle = 0
         self.speed = 4
         hackpoints.append(self)
+        
+        
 
     def draw(self, surface):
         # Animate displayed_health towards actual health
@@ -65,7 +75,8 @@ class HackingPoint:
             # Foreground bar (green, proportional to displayed_health)
             health_ratio = max(self.displayed_health, 0) / 100
             pygame.draw.rect(surface, (0, 200, 0), (bar_x, bar_y, int(bar_width * health_ratio), bar_height))
-    
+
+
 # ___playersclass___
 
 class Player:
@@ -83,23 +94,19 @@ class Player:
         players[self.id] = self
         self.hack_cooldown = 0
         self.hack_delay = 60  # 60 frames = 1 second at 60 FPS
-        self.ammo = 200000000000
-
+        self.overhealth_timer = 0
+        self.ammo = 20
+        self.shot = False
+        self.dead = False  # Track if the player is dead
         self.damagedict = {}  # Dictionary to track damage given to other players
-
+        self.hackedpoints={}
         
 
         self.shoot_cooldown = 0
         self.shoot_delay = 24  # 24 Frames = 0.4s bei 60 FPS
 
     def update(self, mouse_world_pos, keys):
-        global player_dead
-        if self.health <= 0 and not player_dead:
-            self.health = 0
-            player_dead = True
-            if self in players:
-                players.remove(self)
-            return  # Stop further updates if dead
+        
 
         forward = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
         right = pygame.Vector2(-forward.y, forward.x)
@@ -110,18 +117,19 @@ class Player:
             self.hit_timer -= 1
 
     def draw(self, surface):
+        if self.dead == False:
         # Choose color based on hit_timer
-        color = (255, 0, 0) if self.hit_timer > 0 else (0, 0, 255)
-        image = pygame.Surface((40, 20), pygame.SRCALPHA)
-        pygame.draw.polygon(image, color, [(0, 0), (40, 10), (0, 20)])
-        rotated = pygame.transform.rotate(image, -math.degrees(self.angle))
-        rect = rotated.get_rect(center=self.pos)
-        surface.blit(rotated, rect)
-        # Draw name
-        font = pygame.font.Font(None, 24)
-        name_surf = font.render(self.name, True, (0, 0, 0))
-        name_rect = name_surf.get_rect(center=(self.pos.x, self.pos.y - 25))
-        surface.blit(name_surf, name_rect)
+            color = (255, 0, 0) if self.hit_timer > 0 else (0, 0, 255)
+            image = pygame.Surface((40, 20), pygame.SRCALPHA)
+            pygame.draw.polygon(image, color, [(0, 0), (40, 10), (0, 20)])
+            rotated = pygame.transform.rotate(image, -math.degrees(self.angle))
+            rect = rotated.get_rect(center=self.pos)
+            surface.blit(rotated, rect)
+            # Draw name
+            font = pygame.font.Font(None, 24)
+            name_surf = font.render(self.name, True, (0, 0, 0))
+            name_rect = name_surf.get_rect(center=(self.pos.x, self.pos.y - 25))
+            surface.blit(name_surf, name_rect)
 
     def shoot(self):
         if self.ammo <= 0:
@@ -130,6 +138,7 @@ class Player:
         else:
             print(f"Remaining ammo: {self.ammo}")
             self.ammo -= 1
+            self.shot = True
             length = 1000
             direction = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
             start = self.pos + direction * 25
@@ -161,12 +170,13 @@ class Player:
 
                     p.hit_timer = 15
                     print(f"{p.name} got hit Health: {p.health}")
-                    self.points += 10
+                    self.points += 5
                     if p.health <= 0:
+                        p.die()
+                        
                         print(f"{p.name} died!")
                         p.health = 0
-                        if p in players:
-                            players.remove(p)
+                        ###
                     # Only hit one player per shot (optional: remove break if you want multi-hit)
                     break
 
@@ -175,6 +185,12 @@ class Player:
             last_shot_coords = (start, end)
             show_shot_line = True
             shot_line_timer = 1  # Only show for 1 frame
+    def die(self):
+        self.health = 0
+        self.dead = True
+        if self in players:
+            del players[self.id]
+            
     
 
 class Client(Player):
@@ -182,6 +198,8 @@ class Client(Player):
         super().__init__(pos,id)
         
     def update(self, mouse_world_pos, keys):
+        if self.dead == True:
+            return
         direction = mouse_world_pos - self.pos
         self.angle = math.atan2(direction.y, direction.x)
 
@@ -206,7 +224,13 @@ class Client(Player):
 
                     if hackpoint.health <= 0:
                         print("Hacking Point destroyed!")
-                        self.points += 1
+                        self.points += 5
+                        self.health += 30
+                        self.ammo += 15
+                        print(self.hackedpoints)
+                        self.hackedpoints[hackpoint.id]=hackpoint.id
+                        print(self.hackedpoints)
+
                         hackpoints.remove(hackpoint)
                         hackpoint.image_orig.fill((0, 0, 0, 0))
                     break  # Only hack one point at a time
@@ -252,11 +276,15 @@ class Client(Player):
             "ammo": self.ammo,
             "points": self.points,
             "givendamage": self.damagedict.copy(),
+            "shot": self.shot,
+            "hackpoints": self.hackedpoints.copy()
             }
         if self.damagedict:
             print(self.damagedict)
         
-        self.damagedict.clear()  # Clear after sending
+        self.damagedict.clear()
+        self.hackedpoints.clear()
+        self.shot = False  # Clear after sending
         return data_dict.copy()
         
     
@@ -283,8 +311,9 @@ show_shot_line = False
 shot_line_timer = 0
 
 #Update game 
+
 def updategame():
-    global player_dead
+    
     world_surface = pygame.Surface((WORLD_WIDTH, WORLD_HEIGHT))
     draw_world(world_surface)
 
@@ -298,7 +327,7 @@ def updategame():
         user.draw(world_surface)
 
     # Draw the main player if not dead (for local player)
-    if not player_dead:
+    if not player.dead:
         player.draw(world_surface)
 
     # Draw all hacking points with loading bars
@@ -315,10 +344,32 @@ def updategame():
         show_shot_line = False
 
     screen.blit(camera.apply(world_surface, view_rect), (0, 0))
+    
+    #health
+    # Health bar settings
+    bar_width = 200
+    bar_height = 24
+    bar_x = (SCREEN_WIDTH - bar_width) // 2
+    bar_y = SCREEN_HEIGHT - 42
 
-    text = font.render(f"Health: {max(player.health, 0)}", True, (0, 255, 0), (0, 0, 128))
+    # Calculate health ratio
+    health_ratio = max(player.health, 0) / 100
+
+    # Draw background bar (gray, full width)
+    pygame.draw.rect(screen, (80, 80, 80), (bar_x, bar_y, bar_width, bar_height))
+
+    # Draw foreground bar (green, proportional to health)
+    pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y, int(bar_width * health_ratio), bar_height))
+
+    # Draw health text on top (as before)
+    text = font.render(f"Health: {max(player.health, 0)}", True, (0, 0, 0), None)
     text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30))
     screen.blit(text, text_rect)
+
+    #ammo text
+    text_ammo = font.render(f"Ammo: {player.ammo}", True, (0, 0, 0), (0, 255, 0))
+    text_ammo_rect = text_ammo.get_rect(center=(SCREEN_WIDTH - 80, SCREEN_HEIGHT - 30))
+    screen.blit(text_ammo, text_ammo_rect)
 
     if player.health <= 0:
         # Draw a semi-transparent grey overlay
@@ -332,9 +383,25 @@ def updategame():
         #cover the screen in transparent red
         print("Player died!")
         player.health = 0
-        player_dead = True
+        player.dead = True
         if player in players:
             players.remove(player)
+
+    #overhealth system
+    if player.health > 100:
+        player.overhealth_timer += 1
+        if player.overhealth_timer >= 100:  # Wait 2 seconds at 60 FPS
+            player.health -= 1  # Decrease overhealth slowly
+            if player.health < 100:
+                player.health = 100
+            player.overhealth_timer = 0  # Reset timer after each decrease
+    else:
+        player.overhealth_timer = 0  # Reset timer if health <= 100
+    
+        
+        
+        
+            
 
     #if player in players:
         #print(player.pos, player.angle)
@@ -348,17 +415,23 @@ def updategame():
             continue
         i = playerdict["id"]
         if playerdict["id"] == player.id:
-            player.health = playerdict["health"]
-            players[i].health = playerdict["health"]
-            print(playerdict["health"])
             continue
         else:
             #print("gegner ausgeführt")
             players[i].pos = pygame.Vector2(playerdict["pos"])
             players[i].angle = playerdict["angle"]
-            players[i].health = playerdict["health"]
             players[i].ammo = playerdict["ammo"]
             players[i].points = playerdict["points"]
+
+            if playerdict["shot"]:
+                players[i].shoot()
+
+            if playerdict["hackpoints"]:
+                for hack_id in playerdict["hackpoints"].values():
+                    for hp in hackpoints[:]:  # Copy to avoid modifying while iterating
+                        if hp.id == hack_id:
+                            hackpoints.remove(hp)
+
 
 
 # Function to draw the world
@@ -400,7 +473,10 @@ create_players()
 camera = Camera(WORLD_WIDTH, WORLD_HEIGHT, ZOOM)
 bullets = []  # Liste aller Bullets
 
-testhack = HackingPoint((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2))
+
+
+testhack = HackingPoint((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2),1)
+testhack2 = HackingPoint((WORLD_WIDTH // 3, WORLD_HEIGHT // 2.5),2)
 
 
 
@@ -438,7 +514,7 @@ Wall(1600, 1400, 400, 20)
 
 
 # --- Main loop ---
-player_dead = False
+
 while True:
     dt = clock.tick(60)
     for event in pygame.event.get():
