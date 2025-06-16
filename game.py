@@ -1,15 +1,37 @@
 import pygame
 import math
 import sys
+import maps
 from network import Network
-#from network import Network
+import tkinter as tk
+
+global username
+
+def submit_username():
+    global username  # Make it accessible outside the function
+    username = entry.get()  # Store the entered username
+    getUserWin.destroy()  # Close the window immediately
+
+#Create username Input Window
+getUserWin = tk.Tk()
+getUserWin.title("Enter Username")
+getUserWin.geometry("300x150")
+label = tk.Label(getUserWin, text="Enter your username:")
+label.pack(pady=10)
+entry = tk.Entry(getUserWin, width=30)
+entry.pack(pady=5)
+submitButton = tk.Button(getUserWin, text="Submit", command=submit_username)
+submitButton.pack(pady=10)
+getUserWin.mainloop()
+
+print("Username entered:", username)  # Example usage
 
 
 
 
 # --- Settings ---
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600#
-WORLD_WIDTH, WORLD_HEIGHT = 2400, 1800  #map size
+WORLD_WIDTH, WORLD_HEIGHT = 2400*2, 1800*2  #map size
 ZOOM = 1.5
 
 # --- pygame setup ---
@@ -86,7 +108,7 @@ class Player:
         self.id = id
         self.pos = pygame.Vector2(pos)
         self.angle = 0
-        self.speed = 4
+        self.speed = 8
         self.health = 100
         self.points = 0
         self.name = name
@@ -194,8 +216,8 @@ class Player:
     
 
 class Client(Player):
-    def __init__(self,pos,id):
-        super().__init__(pos,id)
+    def __init__(self,pos,id,name):
+        super().__init__(pos,id,name)
         
     def update(self, mouse_world_pos, keys):
         if self.dead == True:
@@ -267,6 +289,50 @@ class Client(Player):
         rect = rotated.get_rect(center=self.pos)
         surface.blit(rotated, rect)
     
+    def shoot(self):
+        if self.ammo <= 0:
+            print("Out of ammo!")
+            return
+        else:
+            print(f"Remaining ammo: {self.ammo}")
+            self.ammo -= 1
+            self.shot = True
+            length = 1000
+            direction = pygame.Vector2(math.cos(self.angle), math.sin(self.angle))
+            start = self.pos + direction * 25
+            end = start + direction * length
+
+            # Find the closest wall intersection
+            min_dist = float('inf')
+            hit_point = None
+            for wall in walls:
+                clipped = wall.clipline((start.x, start.y), (end.x, end.y))
+                if clipped:
+                    for pt in clipped:
+                        dist = pygame.Vector2(pt).distance_to(start)
+                        if dist < min_dist:
+                            min_dist = dist
+                            hit_point = pygame.Vector2(pt)
+            if hit_point:
+                end = hit_point
+
+            # Check for player hits
+            for p in players.values():  # Use a copy of the list in case we remove a player
+                if p is self:
+                    continue
+                player_rect = pygame.Rect(p.pos.x - 20, p.pos.y - 10, 40, 20)
+                if player_rect.clipline((start.x, start.y), (end.x, end.y)):   
+                    self.damagedict[p.id] = p.health
+                    p.hit_timer = 15
+                    self.points += 5
+                    break
+
+            # Store the line coordinates for drawing
+            global last_shot_coords, show_shot_line, shot_line_timer
+            last_shot_coords = (start, end)
+            show_shot_line = True
+            shot_line_timer = 1  # Only show for 1 frame
+
     def send_data(self):
         data_dict = {
             "pos": self.pos,
@@ -277,7 +343,8 @@ class Client(Player):
             "points": self.points,
             "givendamage": self.damagedict.copy(),
             "shot": self.shot,
-            "hackpoints": self.hackedpoints.copy()
+            "hackpoints": self.hackedpoints.copy(),
+            "name": self.name
             }
         if self.damagedict:
             print(self.damagedict)
@@ -398,8 +465,7 @@ def updategame():
     else:
         player.overhealth_timer = 0  # Reset timer if health <= 100
     
-        
-        
+    
         
             
 
@@ -407,6 +473,16 @@ def updategame():
         #print(player.pos, player.angle)
         
     data = n.send(player.send_data())  # Send player data to server
+
+    if len([i for i in data if i is not None and i["health"] > 0]) == 1:
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((50, 50, 50, 180))  # RGBA: last value is alpha (transparency)
+        screen.blit(overlay, (0, 0))
+        winner = [i for i in data if i is not None and i["health"] > 0][0]["name"]
+        game_over_text = font.render(f"Game ended. {winner} Won the game", True, (255, 0, 0))
+        game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        screen.blit(game_over_text, game_over_rect)
+
     #move players to the new data
     #print(data)
     for playerdict in data:
@@ -422,6 +498,9 @@ def updategame():
             players[i].angle = playerdict["angle"]
             players[i].ammo = playerdict["ammo"]
             players[i].points = playerdict["points"]
+            players[i].name = playerdict["name"]
+            if playerdict["health"] <= 0:
+                players[i].die()
 
             if playerdict["shot"]:
                 players[i].shoot()
@@ -431,6 +510,10 @@ def updategame():
                     for hp in hackpoints[:]:  # Copy to avoid modifying while iterating
                         if hp.id == hack_id:
                             hackpoints.remove(hp)
+            #winscreen#
+    
+    
+    
 
 
 
@@ -458,9 +541,9 @@ players = {}
 
 ClientId = n.getId()
 print(f"Client ID: {ClientId}")
-pygame.display.set_caption(f"Hackers: Terminal Lockdown - Client {ClientId}")
+pygame.display.set_caption(f"Hackers: Terminal Lockdown - Client {ClientId} - {username}")
 
-player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2), id=ClientId)
+player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2), id=ClientId, name=username)
 print(f"sending player: {player}")
 #players=n.send(player)
 print(players)
@@ -481,35 +564,11 @@ testhack2 = HackingPoint((WORLD_WIDTH // 3, WORLD_HEIGHT // 2.5),2)
 
 
 
-# CHATGPT generierte Wände für test-zwecke
+#walls generieren
 
-# Outer walls (bigger rectangle)
-Wall(0, 0, 2400, 20)           # Top outer wall
-Wall(0, 1780, 2400, 20)        # Bottom outer wall
-Wall(0, 0, 20, 1800)           # Left outer wall
-Wall(2380, 0, 20, 1800)        # Right outer wall
-
-# Inner maze walls with bigger doors (larger gaps)
-
-# Horizontal walls
-Wall(150, 150, 400, 20)
-Wall(650, 200, 20, 350)
-Wall(670, 550, 20, 350)
-Wall(690, 900, 300, 20)
-Wall(1200, 600, 20, 500)
-Wall(1220, 1100, 600, 20)
-Wall(1850, 400, 20, 800)
-Wall(1500, 300, 600, 20)
-
-# Vertical walls
-Wall(200, 200, 20, 400)        # vertical with big door gap below
-Wall(400, 600, 20, 400)
-Wall(800, 700, 400, 20)
-Wall(1400, 1200, 20, 400)
-Wall(1600, 1400, 400, 20)
-
-# Add some door-sized gaps for easy passage
-# For example, gaps between vertical walls or shorter walls where needed
+usedmap = maps.map3()
+for currentwall in usedmap:
+    Wall(*currentwall)
 
 
 
@@ -524,10 +583,4 @@ while True:
     #players = n.send(players[player.id])        
     
     updategame()
-    
-    ### remove 10 health from player if z key is pressed for testing
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_z]:
-        player.health -= 10
-    ###
     pygame.display.flip()
