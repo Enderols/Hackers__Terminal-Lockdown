@@ -12,11 +12,11 @@ A multiplayer battle royale game where players compete to hack control points an
 ✔ Real-Time Networking – Smooth gameplay using a custom server-client model.
 
 🕹️ Controls:
-Action	Key
-Move	WASD
-Aim	Mouse
-Shoot	Space
-Hack Terminal	E
+Action - Key:
+    Move - WASD
+    Aim - Mouse
+    Shoot - Space
+    Hack Terminal - E
 
 📜 Rules & Scoring
     Terminal Hacks: gain 30 health temporarly and get more amo
