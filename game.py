@@ -2,6 +2,7 @@ import pygame
 import math
 import sys
 import maps
+from random import randint
 from network import Network
 import tkinter as tk
 
@@ -31,7 +32,7 @@ print("Username entered:", username)  # Example usage
 
 # --- Settings ---
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600#
-WORLD_WIDTH, WORLD_HEIGHT = 2400*2, 1800*2  #map size
+WORLD_WIDTH, WORLD_HEIGHT = 2400, 1800  #map size
 ZOOM = 1.5
 
 # --- pygame setup ---
@@ -108,7 +109,7 @@ class Player:
         self.id = id
         self.pos = pygame.Vector2(pos)
         self.angle = 0
-        self.speed = 8
+        self.speed = 4
         self.health = 100
         self.points = 0
         self.name = name
@@ -237,7 +238,7 @@ class Client(Player):
         if self.hack_cooldown > 0:
             self.hack_cooldown -= 1
 
-        if keys[pygame.K_h] and self.hack_cooldown == 0:
+        if keys[pygame.K_e] and self.hack_cooldown == 0:
             for hackpoint in hackpoints:
                 if self.pos.distance_to(hackpoint.pos) < 100:
                     hackpoint.health -= 20
@@ -377,8 +378,24 @@ last_shot_coords = None
 show_shot_line = False
 shot_line_timer = 0
 
-#Update game 
+def getSpawnpoint():
+    while True:
+        randomx = randint(0,WORLD_WIDTH)
+        randomy = randint(0,WORLD_HEIGHT)
+        collision = False
+        spawnRect = pygame.Rect(randomx - 20, randomy - 10, 40, 20)
+        for wall in walls:
+            if spawnRect.colliderect(wall):
+                print("passt nicht")
+                collision = True
+                break
+        if not collision:
+            return (randomx,randomy)
+           
+                
 
+
+#Update game 
 def updategame():
     
     world_surface = pygame.Surface((WORLD_WIDTH, WORLD_HEIGHT))
@@ -537,13 +554,23 @@ def create_players():
 # Setup
 players = {}
 
+#open map
+usedmap, maphackpoints = maps.map5()
+for currentwall in usedmap:
+    Wall(*currentwall)
+
+hackid = 0
+for hackpoint in maphackpoints:
+    HackingPoint(pos=hackpoint, id=hackid)
+    hackid += 1
 
 
 ClientId = n.getId()
 print(f"Client ID: {ClientId}")
 pygame.display.set_caption(f"Hackers: Terminal Lockdown - Client {ClientId} - {username}")
 
-player = Client((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2), id=ClientId, name=username)
+
+player = Client((getSpawnpoint()), id=ClientId, name=username)
 print(f"sending player: {player}")
 #players=n.send(player)
 print(players)
@@ -558,17 +585,8 @@ bullets = []  # Liste aller Bullets
 
 
 
-testhack = HackingPoint((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2),1)
-testhack2 = HackingPoint((WORLD_WIDTH // 3, WORLD_HEIGHT // 2.5),2)
-
-
-
-
-#walls generieren
-
-usedmap = maps.map3()
-for currentwall in usedmap:
-    Wall(*currentwall)
+#testhack = HackingPoint((WORLD_WIDTH // 2.5, WORLD_HEIGHT // 2.2),1)
+#testhack2 = HackingPoint((WORLD_WIDTH // 3, WORLD_HEIGHT // 2.5),2)
 
 
 
