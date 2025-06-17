@@ -6,10 +6,14 @@ import tkinter as tk
 
 global gameStart
 gameStart = False
-server = "172.22.0.1"
+server = "192.168.178.1"
 port = 5555
 
 def threaded_client(conn, playerId):
+    if gameStart == True:
+        conn.send(pickle.dumps(None))
+        return # If the game has already started, do not allow new connections
+
     conn.send(pickle.dumps(playerId))
     global currentPlayer
     reply = []
@@ -92,7 +96,6 @@ players = []
 
 currentPlayer = 0
 while True:
-    
     conn, addr = s.accept()
     print("Connected to: ", addr)
     players.append(None) # Initialize with None for new player

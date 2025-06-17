@@ -340,43 +340,26 @@ def map5():
     ]
 
     hackpoints = [
-    # -- Central Open Area (High Traffic) --
-    (1050, 750),  # Near central pillar (east side)
-    (1250, 850),  # Low cover near south exit
-    (1420, 720),  # West of right pillar
-    (950, 680),   # Near left pillar (safe gap)
-
-    # -- North Wing (Controlled Rooms) --
-    (300, 300),   # NW room corner
-    (500, 450),   # Near hallway entrance
-    (720, 280),   # North hallway side
-    (650, 500),   # Connector to courtyard
-
-    # -- East Wing (Barracks & Armory) --
-    (1700, 500),  # Barracks left side
-    (1880, 620),  # Barracks right side
-    (1820, 1100), # Armory entrance
-    (1950, 1300), # SE armory back
-
-    # -- West Courtyard (Scattered Cover) --
-    (480, 920),   # Behind left wall
-    (600, 1050),  # Near crate
-    (820, 1180),  # Along low wall
-    (900, 1250),  # Plaza transition
-
-    # -- Southern Plaza (Open but Risky) --
-    (1280, 1280), # Near low wall
-    (1450, 1400), # Behind central obstacle
-    (1600, 1500), # Far southeast
-    (1750, 1350), # Near armory exit
-
-    # -- Special Areas (High-Value) --
-    (350, 1480),  # Sniper nest approach
-    (2200, 420),  # Power position flank
-
-    # -- Hallway Hotspots --
-    (880, 580),   # North-south choke
-    (1180, 1180), # East-west connector
-    (1520, 900)   # Vertical hallway junction
+    (100, 100),
+    (300, 600),
+    (100, 1300),
+    (300, 1600),
+    (500, 1300),
+    (820, 650),
+    (850, 1050),
+    (1000, 1500),
+    (1330, 1250),
+    (1300, 1700),
+    (1800, 1550),
+    (2250, 1650),
+    (2150, 1025),
+    (2225, 400),
+    (1900, 250),
+    (1200, 180),
+    (700, 100),
+    (630, 450),
+    (1400, 1100),
+    (1400, 560),
+    (1600, 1100),
 ]
     return map_walls, hackpoints

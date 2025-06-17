@@ -261,7 +261,7 @@ class Client(Player):
         # Regenerate hackpoint health if not hacking (not pressing H or out of range)
         for hackpoint in hackpoints:
             in_range = self.pos.distance_to(hackpoint.pos) < 100
-            if (not keys[pygame.K_h] or not in_range) and hackpoint.health < 100:
+            if (not keys[pygame.K_e] or not in_range) and hackpoint.health < 100:
                 hackpoint.health += 1  # Adjust speed as needed
                 if hackpoint.health > 100:
                     hackpoint.health = 100
@@ -566,6 +566,8 @@ for hackpoint in maphackpoints:
 
 
 ClientId = n.getId()
+if ClientId == None:
+    sys.exit("Error")
 print(f"Client ID: {ClientId}")
 pygame.display.set_caption(f"Hackers: Terminal Lockdown - Client {ClientId} - {username}")
 
