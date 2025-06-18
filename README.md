@@ -1,6 +1,6 @@
 Battle Royale Hacker Game
 
-A multiplayer battle royale game where players compete to hack control points and eliminate opponents. Built with Python, supporting 1 to N players on the same network.
+A multiplayer battle royale game where players compete to hack control points and eliminate opponents. Built with Python, supporting 2 to n players on the same network.
 
 
 📌 Features:
