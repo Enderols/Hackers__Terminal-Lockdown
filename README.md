@@ -34,10 +34,11 @@ python server.py
         server.py (Line 6): server = "192.168.178.1" → Match above IP
    
 3. Client Setup (Player Machines)
+- Make sure you are connected to the server in any way (try pinging the server ip if not running)
 
-Run the executable:
-HackersTerminalLockdownV1_1.exe
+- Run the executable:
+  HackersTerminalLockdownV1_1.exe
 
-Choose a username in the pop-up window and conect
+- Choose a username in the pop-up window and connect
 
-When all clents are conectet press Start on the server!
+- When all clients are conectet press Start on the server!
